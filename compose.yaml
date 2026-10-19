@@ -17,7 +17,10 @@ services:
 
   app:
     build: ./app
-    env_file: .env
+    # Só a virtual key do gateway: as chaves dos providers ficam no serviço gateway.
+    environment:
+      GATEWAY_URL: http://gateway:4000
+      GATEWAY_API_KEY: ${HELPDESK_GATEWAY_KEY}
     volumes:
       - ./data:/data:ro
     healthcheck:
@@ -26,5 +29,56 @@ services:
       timeout: 3s
       retries: 20
     depends_on:
+      gateway-init:
+        condition: service_completed_successfully
+
+  # AI Gateway: única porta de saída para os providers (ver docs/adr).
+  gateway:
+    image: ghcr.io/berriai/litellm:v1.102.1
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      FAKE_OPENAI_KEY: ${FAKE_OPENAI_KEY}
+      FAKE_ANTHROPIC_KEY: ${FAKE_ANTHROPIC_KEY}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      DATABASE_URL: postgresql://litellm:${GATEWAY_DB_PASSWORD}@gateway-db:5432/litellm
+    volumes:
+      - ./gateway/config.yaml:/app/config.yaml:ro
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness')"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    depends_on:
+      gateway-db:
+        condition: service_healthy
       provider-fake:
         condition: service_healthy
+
+  # Cria as virtual keys de gateway/keys.yaml sem passo manual e termina.
+  gateway-init:
+    image: ghcr.io/berriai/litellm:v1.102.1
+    entrypoint: ["python", "/app/init_keys.py"]
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      HELPDESK_GATEWAY_KEY: ${HELPDESK_GATEWAY_KEY}
+    volumes:
+      - ./gateway/init_keys.py:/app/init_keys.py:ro
+      - ./gateway/keys.yaml:/app/keys.yaml:ro
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+  # Banco do LiteLLM: virtual keys, orçamentos e gasto por chave (ver docs/adr).
+  gateway-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: ${GATEWAY_DB_PASSWORD}
+      POSTGRES_DB: litellm
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U litellm -d litellm"]
+      interval: 2s
+      timeout: 3s
+      retries: 20

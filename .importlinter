@@ -1,0 +1,50 @@
+# Contratos de dependência do helpdesk (rodar: uv run lint-imports).
+# São o guardrail mecânico da arquitetura: o critério de aceite exige que só o
+# ponto de composição (main) dependa do componente que chama o gateway.
+
+[importlinter]
+root_package = helpdesk
+include_external_packages = True
+
+[importlinter:contract:features-sem-detalhes]
+name = Features não conhecem adapters, config nem SDK de provider
+type = forbidden
+source_modules =
+    helpdesk.classification
+    helpdesk.extraction
+    helpdesk.suggestion
+    helpdesk.report
+forbidden_modules =
+    helpdesk.adapters
+    helpdesk.config
+    openai
+    anthropic
+
+[importlinter:contract:nucleo-estavel]
+name = Ports e schemas não dependem de nada concreto do helpdesk
+type = forbidden
+source_modules =
+    helpdesk.ports
+    helpdesk.schemas
+forbidden_modules =
+    helpdesk.adapters
+    helpdesk.config
+    helpdesk.main
+    helpdesk.classification
+    helpdesk.extraction
+    helpdesk.suggestion
+    helpdesk.report
+
+[importlinter:contract:adapters-so-no-main]
+name = Só o main importa adapters
+type = forbidden
+source_modules =
+    helpdesk.classification
+    helpdesk.extraction
+    helpdesk.suggestion
+    helpdesk.report
+    helpdesk.ports
+    helpdesk.schemas
+    helpdesk.config
+forbidden_modules =
+    helpdesk.adapters

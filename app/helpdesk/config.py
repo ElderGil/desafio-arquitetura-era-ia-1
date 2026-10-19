@@ -1,16 +1,15 @@
 import os
 
-OPENAI_API_KEY = os.environ["FAKE_OPENAI_KEY"]
-ANTHROPIC_API_KEY = os.environ["FAKE_ANTHROPIC_KEY"]
+# A aplicação só conhece o gateway e a própria chave dele (virtual key).
+GATEWAY_URL = os.environ.get("GATEWAY_URL", "http://gateway:4000")
+GATEWAY_API_KEY = os.environ["GATEWAY_API_KEY"]
+GATEWAY_TIMEOUT_SECONDS = 600
 
-OPENAI_BASE_URL = "http://provider-fake:8090/openai/v1"
-ANTHROPIC_BASE_URL = "http://provider-fake:8090/anthropic"
-
-# A classificação e a extração rodam na OpenAI; a sugestão e o relatório, na Anthropic.
-CLASSIFICATION_MODEL = "gpt-fake-large"
-EXTRACTION_MODEL = "gpt-fake-large"
-SUGGESTION_MODEL = "claude-fake-large"
-REPORT_MODEL = "claude-fake-large"
+# Capacidades lógicas. Qual modelo atende cada uma está em gateway/config.yaml.
+CLASSIFICATION_CAPABILITY = "ticket-classifier"
+EXTRACTION_CAPABILITY = "order-extractor"
+SUGGESTION_CAPABILITY = "reply-writer"
+REPORT_CAPABILITY = "topic-analyst"
 
 MAX_OUTPUT_TOKENS = 2000
 

@@ -1,0 +1,49 @@
+# Configuração do AI Gateway (LiteLLM Proxy).
+#
+# A aplicação só conhece as capacidades lógicas abaixo (model_name). Qual modelo
+# físico atende cada uma é decisão desta configuração: trocar o modelo de uma
+# capacidade é editar este arquivo e reiniciar só o serviço gateway.
+#
+# Preços por token conforme provider-fake/README.md (US$ por 1M tokens / 1.000.000).
+# Sem eles o LiteLLM calcula custo zero e nenhum orçamento estoura.
+
+model_list:
+  - model_name: ticket-classifier
+    litellm_params:
+      model: openai/gpt-fake-large
+      api_base: http://provider-fake:8090/openai/v1
+      api_key: os.environ/FAKE_OPENAI_KEY
+    model_info:
+      input_cost_per_token: 0.0000025
+      output_cost_per_token: 0.00001
+
+  - model_name: order-extractor
+    litellm_params:
+      model: openai/gpt-fake-large
+      api_base: http://provider-fake:8090/openai/v1
+      api_key: os.environ/FAKE_OPENAI_KEY
+    model_info:
+      input_cost_per_token: 0.0000025
+      output_cost_per_token: 0.00001
+
+  - model_name: reply-writer
+    litellm_params:
+      model: anthropic/claude-fake-large
+      api_base: http://provider-fake:8090/anthropic
+      api_key: os.environ/FAKE_ANTHROPIC_KEY
+    model_info:
+      input_cost_per_token: 0.000003
+      output_cost_per_token: 0.000015
+
+  - model_name: topic-analyst
+    litellm_params:
+      model: anthropic/claude-fake-large
+      api_base: http://provider-fake:8090/anthropic
+      api_key: os.environ/FAKE_ANTHROPIC_KEY
+    model_info:
+      input_cost_per_token: 0.000003
+      output_cost_per_token: 0.000015
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL

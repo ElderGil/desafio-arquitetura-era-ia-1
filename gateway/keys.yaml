@@ -1,0 +1,10 @@
+# Virtual keys do gateway, criadas pelo serviço gateway-init a cada subida.
+#
+# O valor de cada chave vem da variável de ambiente indicada em `key_env`
+# (definida no .env.example). Nenhuma delas é chave de provider: a aplicação
+# fala só com o gateway, e só o gateway conhece FAKE_OPENAI_KEY e FAKE_ANTHROPIC_KEY.
+
+keys:
+  - alias: helpdesk-app
+    key_env: HELPDESK_GATEWAY_KEY
+    models: [ticket-classifier, order-extractor, reply-writer, topic-analyst]
