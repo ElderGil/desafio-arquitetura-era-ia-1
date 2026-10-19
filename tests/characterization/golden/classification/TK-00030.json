@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "body": {
+    "ticket_id": "TK-00030",
+    "category": "product_defect",
+    "priority": "low"
+  }
+}

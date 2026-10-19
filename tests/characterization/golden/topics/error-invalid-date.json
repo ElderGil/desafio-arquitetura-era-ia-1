@@ -1,0 +1,19 @@
+{
+  "status": 422,
+  "body": {
+    "detail": [
+      {
+        "type": "date_from_datetime_parsing",
+        "loc": [
+          "body",
+          "start"
+        ],
+        "msg": "Input should be a valid date or datetime, day value is outside expected range",
+        "input": "2026-08-32",
+        "ctx": {
+          "error": "day value is outside expected range"
+        }
+      }
+    ]
+  }
+}

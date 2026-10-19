@@ -1,0 +1,6 @@
+{
+  "status": 422,
+  "body": {
+    "detail": "A data inicial é posterior à data final"
+  }
+}
