@@ -2,21 +2,25 @@ from fastapi import FastAPI
 
 from . import classification, config, extraction, report, suggestion
 from .adapters.gateway import GatewayLanguageModel
+from .adapters.tickets_file import TicketFile
 from .schemas import (Classification, OrderData, PeriodInput, ReplySuggestion, TicketInput,
                       TopicsReport)
 
 app = FastAPI(title="Helpdesk")
 
-# Ponto de composição: o único lugar que conhece a implementação concreta do modelo.
+# Ponto de composição: o único lugar que conhece as implementações concretas e a configuração.
 model = GatewayLanguageModel(
     base_url=config.GATEWAY_URL,
     api_key=config.GATEWAY_API_KEY,
     timeout=config.GATEWAY_TIMEOUT_SECONDS,
     max_output_tokens=config.MAX_OUTPUT_TOKENS,
 )
+tickets = TicketFile(config.TICKETS_FILE)
+
 classifier = classification.Classifier(model, config.CLASSIFICATION_CAPABILITY)
-suggester = suggestion.ReplySuggester(model, config.SUGGESTION_CAPABILITY)
 extractor = extraction.OrderExtractor(model, config.EXTRACTION_CAPABILITY)
+suggester = suggestion.ReplySuggester(model, config.SUGGESTION_CAPABILITY)
+reporter = report.TopicsReporter(model, config.REPORT_CAPABILITY, tickets, config.TICKETS_PER_CALL)
 
 
 @app.get("/health")
@@ -41,4 +45,4 @@ def extract_order_data(ticket: TicketInput) -> OrderData:
 
 @app.post("/reports/topics")
 def topics_report(period: PeriodInput) -> TopicsReport:
-    return report.topics(period, model)
+    return reporter.topics(period)
