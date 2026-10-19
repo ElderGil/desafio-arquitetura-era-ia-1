@@ -14,6 +14,7 @@ model = GatewayLanguageModel(
     timeout=config.GATEWAY_TIMEOUT_SECONDS,
     max_output_tokens=config.MAX_OUTPUT_TOKENS,
 )
+classifier = classification.Classifier(model, config.CLASSIFICATION_CAPABILITY)
 
 
 @app.get("/health")
@@ -23,7 +24,7 @@ def health():
 
 @app.post("/tickets/classification")
 def classify_ticket(ticket: TicketInput) -> Classification:
-    return classification.classify(ticket, model)
+    return classifier.classify(ticket)
 
 
 @app.post("/tickets/reply-suggestion")
