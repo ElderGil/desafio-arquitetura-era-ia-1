@@ -15,6 +15,8 @@ model = GatewayLanguageModel(
     max_output_tokens=config.MAX_OUTPUT_TOKENS,
 )
 classifier = classification.Classifier(model, config.CLASSIFICATION_CAPABILITY)
+suggester = suggestion.ReplySuggester(model, config.SUGGESTION_CAPABILITY)
+extractor = extraction.OrderExtractor(model, config.EXTRACTION_CAPABILITY)
 
 
 @app.get("/health")
@@ -29,12 +31,12 @@ def classify_ticket(ticket: TicketInput) -> Classification:
 
 @app.post("/tickets/reply-suggestion")
 def suggest_reply(ticket: TicketInput) -> ReplySuggestion:
-    return suggestion.suggest(ticket, model)
+    return suggester.suggest(ticket)
 
 
 @app.post("/tickets/extraction")
 def extract_order_data(ticket: TicketInput) -> OrderData:
-    return extraction.extract(ticket, model)
+    return extractor.extract(ticket)
 
 
 @app.post("/reports/topics")
