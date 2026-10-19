@@ -199,44 +199,73 @@ def in_pain_zone(row: dict) -> bool:
     return row["a"] < 0.5 and row["i"] < 0.5 and row["d"] >= 0.5
 
 
+def draw_map(ax, rows: list[dict], title: str) -> None:
+    """Desenha o mapa A x I com Main Sequence, zonas e rótulos legíveis num eixo do matplotlib."""
+    ax.plot([0, 1], [1, 0], color="#2e7d32", linestyle="--", linewidth=1.5, label="Main Sequence (A + I = 1)")
+    ax.fill_between([0, 0.5], 0, 0.5, color="#c62828", alpha=0.10, label="Zona de dor")
+    ax.fill_between([0.5, 1], 0.5, 1, color="#f9a825", alpha=0.12, label="Zona de inutilidade")
+
+    # Componentes no mesmo ponto ganham um rótulo só, com os nomes empilhados. Pontos
+    # vizinhos na mesma altura alternam o rótulo entre acima e abaixo, para não encavalar.
+    points: dict[tuple[float, float], list[dict]] = {}
+    for row in rows:
+        points.setdefault((row["i"], row["a"]), []).append(row)
+    previous: tuple[float, float] | None = None
+    below = False
+    for (i, a), group in sorted(points.items()):
+        crowded = previous is not None and previous[1] == a and i - previous[0] < 0.25
+        below = (not below) if crowded else False
+        previous = (i, a)
+        pain = in_pain_zone(group[0])
+        ax.scatter(i, a, s=80 + 25 * max(r["ca"] for r in group), color="#c62828" if pain else "#1565c0",
+                   alpha=0.9, edgecolors="black", zorder=3)
+        lines = len(group)
+        ax.annotate("\n".join(r["component"] for r in group), (i, a), textcoords="offset points",
+                    xytext=(8, -14 * lines - 6 if below else 8), fontsize=10, color="black",
+                    fontweight="bold" if pain else "normal", zorder=4,
+                    bbox={"boxstyle": "round,pad=0.25", "facecolor": "white", "edgecolor": "#9e9e9e", "alpha": 0.95})
+    ax.set_xlim(-0.05, 1.15)
+    ax.set_ylim(-0.25, 1.05)
+    ax.set_yticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    ax.set_xlabel("Instabilidade (I): estável → instável", fontsize=11)
+    ax.set_ylabel("Abstração (A): concreto → abstrato", fontsize=11)
+    ax.set_title(title, fontsize=13)
+    ax.legend(loc="upper right", fontsize=10)
+    ax.grid(alpha=0.3)
+
+
 def plot(rows: list[dict], title: str, path: Path) -> None:
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig, (ax, side) = plt.subplots(1, 2, figsize=(13, 7), gridspec_kw={"width_ratios": [3, 2]})
-    ax.plot([0, 1], [1, 0], color="#2e7d32", linestyle="--", label="Main Sequence (A + I = 1)")
-    ax.fill_between([0, 0.5], 0, 0.5, color="#c62828", alpha=0.08, label="Zona de dor")
-    ax.fill_between([0.5, 1], 0.5, 1, color="#f9a825", alpha=0.08, label="Zona de inutilidade")
+    fig, (ax, side) = plt.subplots(1, 2, figsize=(15, 8), gridspec_kw={"width_ratios": [3, 2]})
+    draw_map(ax, rows, f"A × I por componente: {title}")
 
-    # Componentes no mesmo ponto ganham um rótulo só, com os nomes empilhados.
-    points: dict[tuple[float, float], list[dict]] = {}
-    for row in rows:
-        points.setdefault((row["i"], row["a"]), []).append(row)
-    for (i, a), group in points.items():
-        color = "#c62828" if in_pain_zone(group[0]) else "#1565c0"
-        ax.scatter(i, a, s=60 + 20 * max(r["ca"] for r in group), color=color, alpha=0.8, edgecolors="black")
-        ax.annotate("\n".join(r["component"] for r in group), (i, a), textcoords="offset points",
-                    xytext=(6, 6), fontsize=8)
-    ax.set_xlim(-0.05, 1.1)
-    ax.set_ylim(-0.05, 1.05)
-    ax.set_xlabel("Instabilidade (I): estável → instável")
-    ax.set_ylabel("Abstração (A): concreto → abstrato")
-    ax.set_title(f"A × I por componente: {title}")
-    ax.legend(loc="upper right", fontsize=8)
-    ax.grid(alpha=0.3)
-
+    # Tabela legível: texto preto em fundo branco; zona de dor em branco e negrito
+    # sobre vermelho escuro, para o contraste não depender de cor clara.
     side.axis("off")
     cells = [[r["component"], r["ca"], r["ce"], f"{r['i']:.2f}", f"{r['a']:.2f}", f"{r['d']:.2f}"] for r in rows]
-    table = side.table(cellText=cells, colLabels=["componente", "Ca", "Ce", "I", "A", "D"], loc="center")
+    table = side.table(cellText=cells, colLabels=["componente", "Ca", "Ce", "I", "A", "D"], loc="center",
+                       cellLoc="center")
     table.auto_set_font_size(False)
-    table.set_fontsize(8)
+    table.set_fontsize(11)
+    table.scale(1, 1.6)
     table.auto_set_column_width(list(range(6)))
+    for column in range(6):
+        header = table[0, column]
+        header.set_facecolor("#37474f")
+        header.get_text().set_color("white")
+        header.get_text().set_fontweight("bold")
     for index, row in enumerate(rows, start=1):
+        table[index, 0].get_text().set_horizontalalignment("left")
         if in_pain_zone(row):
             for column in range(6):
-                table[index, column].set_facecolor("#ffcdd2")
+                table[index, column].set_facecolor("#b71c1c")
+                table[index, column].get_text().set_color("white")
+                table[index, column].get_text().set_fontweight("bold")
+    side.set_title("Em vermelho: zona de dor (A < 0,5, I < 0,5 e D ≥ 0,5)", fontsize=10, color="#b71c1c")
     fig.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=120)

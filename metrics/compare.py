@@ -1,7 +1,7 @@
 """Compara as medições de várias versões (CSVs gerados por coupling.py).
 
 Gera uma tabela Markdown com Ca, Ce, I, A e D de cada componente por versão e um
-gráfico A × I com as versões sobrepostas.
+gráfico com um mapa A × I por versão, lado a lado.
 
 Uso:
     uv run python metrics/compare.py v1-coupled v2-decoupled main
@@ -12,8 +12,6 @@ import csv
 from pathlib import Path
 
 RESULTS = Path(__file__).parent / "results"
-MARKERS = ["o", "s", "^", "D"]
-COLORS = ["#c62828", "#f9a825", "#2e7d32", "#1565c0"]
 
 
 def load(name: str, results: Path) -> dict[str, dict]:
@@ -49,28 +47,21 @@ def table(versions: list[str], data: dict[str, dict[str, dict]]) -> str:
 
 
 def plot(versions: list[str], data: dict[str, dict[str, dict]], path: Path) -> None:
+    """Um painel por versão, lado a lado e com os mesmos eixos, para comparar ponto a ponto."""
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots(figsize=(9, 8))
-    ax.plot([0, 1], [1, 0], color="#2e7d32", linestyle="--", label="Main Sequence (A + I = 1)")
-    ax.fill_between([0, 0.5], 0, 0.5, color="#c62828", alpha=0.08, label="Zona de dor")
-    ax.fill_between([0.5, 1], 0.5, 1, color="#f9a825", alpha=0.08, label="Zona de inutilidade")
-    for n, version in enumerate(versions):
-        rows = data[version].values()
-        ax.scatter([r["i"] for r in rows], [r["a"] for r in rows], marker=MARKERS[n % len(MARKERS)],
-                   color=COLORS[n % len(COLORS)], s=70, alpha=0.75, edgecolors="black", label=version)
-    ax.set_xlim(-0.05, 1.05)
-    ax.set_ylim(-0.05, 1.05)
-    ax.set_xlabel("Instabilidade (I): estável → instável")
-    ax.set_ylabel("Abstração (A): concreto → abstrato")
-    ax.set_title("A × I por versão")
-    ax.legend(loc="upper right", fontsize=8)
-    ax.grid(alpha=0.3)
+    from coupling import draw_map
+
+    fig, axes = plt.subplots(1, len(versions), figsize=(8 * len(versions), 8), squeeze=False)
+    for ax, version in zip(axes[0], versions):
+        rows = list(data[version].values())
+        pain = sum(in_pain_zone(row) for row in rows)
+        draw_map(ax, rows, f"{version}: {pain} na zona de dor")
     fig.tight_layout()
-    fig.savefig(path, dpi=120)
+    fig.savefig(path, dpi=110)
     plt.close(fig)
 
 
