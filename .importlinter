@@ -48,3 +48,17 @@ source_modules =
     helpdesk.config
 forbidden_modules =
     helpdesk.adapters
+
+[importlinter:contract:config-so-no-main]
+name = Só o main lê a configuração
+type = forbidden
+source_modules =
+    helpdesk.classification
+    helpdesk.extraction
+    helpdesk.suggestion
+    helpdesk.report
+    helpdesk.ports
+    helpdesk.schemas
+    helpdesk.adapters
+forbidden_modules =
+    helpdesk.config

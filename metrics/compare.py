@@ -1,6 +1,6 @@
 """Compara as medições de várias versões (CSVs gerados por coupling.py).
 
-Gera uma tabela Markdown com I, A e D de cada componente por versão e um
+Gera uma tabela Markdown com Ca, Ce, I, A e D de cada componente por versão e um
 gráfico A × I com as versões sobrepostas.
 
 Uso:
@@ -31,7 +31,7 @@ def in_pain_zone(row: dict) -> bool:
 
 def table(versions: list[str], data: dict[str, dict[str, dict]]) -> str:
     components = sorted({c for rows in data.values() for c in rows})
-    header = "| componente | " + " | ".join(f"{v} (I / A / D)" for v in versions) + " |"
+    header = "| componente | " + " | ".join(f"{v} (Ca / Ce / I / A / D)" for v in versions) + " |"
     lines = [header, "|" + "---|" * (len(versions) + 1)]
     for component in components:
         cells = []
@@ -41,7 +41,7 @@ def table(versions: list[str], data: dict[str, dict[str, dict]]) -> str:
                 cells.append("—")
             else:
                 mark = " **dor**" if in_pain_zone(row) else ""
-                cells.append(f"{row['i']:.2f} / {row['a']:.2f} / {row['d']:.2f}{mark}")
+                cells.append(f"{row['ca']} / {row['ce']} / {row['i']:.2f} / {row['a']:.2f} / {row['d']:.2f}{mark}")
         lines.append(f"| `{component}` | " + " | ".join(cells) + " |")
     totals = [sum(in_pain_zone(r) for r in data[v].values()) for v in versions]
     lines.append("| **componentes na zona de dor** | " + " | ".join(str(t) for t in totals) + " |")

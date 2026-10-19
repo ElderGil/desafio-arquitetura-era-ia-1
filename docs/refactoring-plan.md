@@ -96,6 +96,49 @@ Contratos do import-linter no piloto: "ports e schemas não dependem de nada con
 
 **Revisão 3, depois do piloto: o critério de pronto ganha o comando do import-linter.** O item 3 da seção 4 passa a ser literalmente `PYTHONPATH=app uv run lint-imports` com os três contratos mantidos, e não uma leitura do agente.
 
+**Revisão 4, depois da escala: o `config` com Ca = 1 continua na zona de dor, e vira exceção guardada.** O plano previa "config com Ca = 1" como resultado bom. A régua mostrou outra coisa: com só o `main` dependendo dele e nenhuma dependência de saída, o `config` fica em I = 0 e A = 0, ou seja, D = 1, na zona de dor. O agente parou nesse ponto, como o handoff mandava, em vez de contornar.
+
+Avaliamos duas saídas:
+
+1. dissolver o `config` dentro do `main`, que faria o ponto sumir do gráfico, mas é desenhar o código em função da fórmula;
+2. declarar o `config` como exceção, como o `schemas`.
+
+Ficamos com a segunda, porque a dor que a zona aponta (muitos dependentes de um concreto difícil de mudar) não existe mais: o Ca caiu de 6 para 1. Para que continue assim, entrou um quarto contrato no `.importlinter`, `config-so-no-main`. A exceção deixa de ser só um parágrafo no ADR e passa a ser verificada a cada execução. Detalhes em [0005](adr/0005-ler-a-metrica-com-excecoes-declaradas-e-guardadas.md).
+
 ## 8. Handoff para o agente
 
-_A preencher._
+**Quem.** A escala foi entregue a um subagente do Claude Code com outro modelo (Sonnet 5.5; o plano e o piloto foram feitos com o Opus 5.5), num worktree git isolado, sem acesso a push nem a tag.
+
+**O que foi entregue.** Um prompt de handoff com:
+
+- o contexto, apontando este plano e o commit do piloto (`3f97ab4`);
+- cinco tarefas fechadas: features como classes que recebem `LanguageModel` e capacidade por construtor; `ports.TicketSource` mais `adapters.tickets_file` no lugar de `tickets.py`; `main` como único ponto de composição; comportamento externo idêntico; testes de unidade com fakes do port, em TDD por fatias verticais;
+- a lista do que estava fora de escopo (testes de caracterização, golden master, provider, borda, dados, gateway, métrica, contratos, compose, docs);
+- os comandos para rodar tudo e os cinco critérios de aceite mecânicos da seção 4;
+- a regra de parar e relatar, em vez de contornar mudando teste, contrato ou régua, ou criando um import só para mover um ponto no gráfico.
+
+**O que voltou.** Três commits (`8eecd98`, `29960ee`, `ac3f16d`), um por fatia, com 16 testes de unidade novos. Quatro dos cinco critérios passaram. O critério da métrica falhou por causa do `config` (revisão 4), e o agente parou e devolveu a decisão, que era o comportamento pedido. Ele também registrou duas decisões fora do plano:
+
+- adicionou `fastapi` ao grupo de dev da raiz, para os testes de unidade importarem as features (a app não ganhou dependência);
+- criou `tests/unit/conftest.py` para os testes rodarem sem `PYTHONPATH`.
+
+**Como aceitamos.** Nada foi aceito pelo relato do agente. Depois do fast-forward para a `main`, rodamos de novo os cinco critérios com a pilha reconstruída:
+
+| critério | resultado |
+|---|---|
+| `uv run pytest tests/characterization -q` | 39 passed, `tests/characterization/` intocado |
+| `PYTHONPATH=app uv run lint-imports` | 4 contratos mantidos (3 do plano e o `config-so-no-main` da revisão 4) |
+| `metrics/coupling.py` | só `schemas` e `config` na zona de dor, os dois declarados e guardados |
+| grep de nomes físicos e chaves em `app/` | vazio |
+| `uv run pytest tests/unit -q` | 16 passed |
+
+O `/admin/calls` mostrou as mesmas chamadas da v1: `classify` e `extract` em `gpt-fake-large`, `suggest` e `topics` em `claude-fake-large`, todas pelo gateway e uma por requisição. O diff do agente tocou só `app/helpdesk/`, `tests/unit/` e o grupo de dev do `pyproject.toml`. Antes da tag, a refatoração passa ainda por uma revisão em par com outro agente, o Antigravity CLI (Gemini), como auditor, e o registro fica no ai-memory.
+
+## 9. Resultado (v2-decoupled)
+
+`metrics/results/comparison.md` e `comparison.png` comparam as versões. De 3 componentes na zona de dor na v1 para 2 na v2, e os dois que ficam mudaram de natureza:
+
+- o `config` passou de 6 dependentes para 1;
+- o `schemas` é tipo de valor, sem comportamento.
+
+O `llm` saiu, e a abstração que nasceu no lugar (`ports`) está sobre a Main Sequence (A = 1, I = 0, D = 0), com 6 dependentes. Os dois adapters estão na fronteira (I = 0,50, D = 0,50), protegidos pelo contrato `adapters-so-no-main`.
