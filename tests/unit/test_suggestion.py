@@ -4,10 +4,10 @@ from helpdesk.suggestion import ReplySuggester
 from fakes import FakeLanguageModel
 
 
-def test_devolve_o_texto_do_modelo_como_sugestao():
-    model = FakeLanguageModel("Olá, vamos resolver.")
+def test_entrega_a_sugestao_em_trechos_que_somam_o_texto_do_modelo():
+    model = FakeLanguageModel("Olá, vamos resolver.", chunk_size=5)
 
-    result = ReplySuggester(model, "cap-responder").suggest(TicketInput(ticket_id="T-3", text="Ajuda"))
+    chunks = list(ReplySuggester(model, "cap-responder").stream(TicketInput(ticket_id="T-3", text="Ajuda")))
 
-    assert (result.ticket_id, result.suggestion) == ("T-3", "Olá, vamos resolver.")
+    assert chunks == ["Olá, ", "vamos", " reso", "lver."]
     assert model.calls == [("cap-responder", "suggest", "Ajuda")]

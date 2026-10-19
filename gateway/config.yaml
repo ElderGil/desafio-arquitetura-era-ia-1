@@ -1,48 +1,98 @@
 # Configuração do AI Gateway (LiteLLM Proxy).
 #
-# A aplicação só conhece as capacidades lógicas abaixo (model_name). Qual modelo
-# físico atende cada uma é decisão desta configuração: trocar o modelo de uma
-# capacidade é editar este arquivo e reiniciar só o serviço gateway.
+# A aplicação só conhece as quatro capacidades lógicas (ticket-classifier,
+# order-extractor, reply-writer, topic-analyst). Os destinos "-equivalente" e
+# "-fraco" são internos: existem só como fallback, e a chave da aplicação não
+# tem acesso direto a eles (gateway/keys.yaml).
+#
+# Trocar o modelo de uma capacidade: editar o `model` do destino e reiniciar só o
+# serviço gateway (docker compose restart gateway).
 #
 # Preços por token conforme provider-fake/README.md (US$ por 1M tokens / 1.000.000).
 # Sem eles o LiteLLM calcula custo zero e nenhum orçamento estoura.
+#
+# Timeout por tentativa (orçamento de latência, docs/adr):
+#   F1 e F4 síncronas: 4 s;  F2 em streaming: 2 s até o primeiro trecho;  F3 por lote: 20 s.
+
+x-openai-large: &openai-large
+  model: openai/gpt-fake-large
+  api_base: http://provider-fake:8090/openai/v1
+  api_key: os.environ/FAKE_OPENAI_KEY
+x-openai-mini: &openai-mini
+  model: openai/gpt-fake-mini
+  api_base: http://provider-fake:8090/openai/v1
+  api_key: os.environ/FAKE_OPENAI_KEY
+x-anthropic-large: &anthropic-large
+  model: anthropic/claude-fake-large
+  api_base: http://provider-fake:8090/anthropic
+  api_key: os.environ/FAKE_ANTHROPIC_KEY
+x-anthropic-mini: &anthropic-mini
+  model: anthropic/claude-fake-mini
+  api_base: http://provider-fake:8090/anthropic
+  api_key: os.environ/FAKE_ANTHROPIC_KEY
+
+x-price-openai-large: &price-openai-large {input_cost_per_token: 0.0000025, output_cost_per_token: 0.00001}
+x-price-openai-mini: &price-openai-mini {input_cost_per_token: 0.00000015, output_cost_per_token: 0.0000006}
+x-price-anthropic-large: &price-anthropic-large {input_cost_per_token: 0.000003, output_cost_per_token: 0.000015}
+x-price-anthropic-mini: &price-anthropic-mini {input_cost_per_token: 0.0000008, output_cost_per_token: 0.000004}
 
 model_list:
+  # F1 Classificar ticket: primário OpenAI, equivalente Anthropic, fraco permitido.
   - model_name: ticket-classifier
-    litellm_params:
-      model: openai/gpt-fake-large
-      api_base: http://provider-fake:8090/openai/v1
-      api_key: os.environ/FAKE_OPENAI_KEY
-    model_info:
-      input_cost_per_token: 0.0000025
-      output_cost_per_token: 0.00001
+    litellm_params: {<<: *openai-large, timeout: 4}
+    model_info: *price-openai-large
+  - model_name: ticket-classifier-equivalente
+    litellm_params: {<<: *anthropic-large, timeout: 4}
+    model_info: *price-anthropic-large
+  - model_name: ticket-classifier-fraco
+    litellm_params: {<<: *openai-mini, timeout: 4}
+    model_info: *price-openai-mini
 
+  # F4 Extrair dados do pedido: primário OpenAI, equivalente Anthropic, sem fraco.
   - model_name: order-extractor
-    litellm_params:
-      model: openai/gpt-fake-large
-      api_base: http://provider-fake:8090/openai/v1
-      api_key: os.environ/FAKE_OPENAI_KEY
-    model_info:
-      input_cost_per_token: 0.0000025
-      output_cost_per_token: 0.00001
+    litellm_params: {<<: *openai-large, timeout: 4}
+    model_info: *price-openai-large
+  - model_name: order-extractor-equivalente
+    litellm_params: {<<: *anthropic-large, timeout: 4}
+    model_info: *price-anthropic-large
 
+  # F2 Sugerir resposta: primário Anthropic, equivalente OpenAI, fraco permitido.
   - model_name: reply-writer
-    litellm_params:
-      model: anthropic/claude-fake-large
-      api_base: http://provider-fake:8090/anthropic
-      api_key: os.environ/FAKE_ANTHROPIC_KEY
-    model_info:
-      input_cost_per_token: 0.000003
-      output_cost_per_token: 0.000015
+    litellm_params: {<<: *anthropic-large, timeout: 60, stream_timeout: 2}
+    model_info: *price-anthropic-large
+  - model_name: reply-writer-equivalente
+    litellm_params: {<<: *openai-large, timeout: 60, stream_timeout: 2}
+    model_info: *price-openai-large
+  - model_name: reply-writer-fraco
+    litellm_params: {<<: *anthropic-mini, timeout: 60, stream_timeout: 2}
+    model_info: *price-anthropic-mini
 
+  # F3 Relatório de temas: primário Anthropic, equivalente OpenAI, fraco permitido.
   - model_name: topic-analyst
-    litellm_params:
-      model: anthropic/claude-fake-large
-      api_base: http://provider-fake:8090/anthropic
-      api_key: os.environ/FAKE_ANTHROPIC_KEY
-    model_info:
-      input_cost_per_token: 0.000003
-      output_cost_per_token: 0.000015
+    litellm_params: {<<: *anthropic-large, timeout: 20}
+    model_info: *price-anthropic-large
+  - model_name: topic-analyst-equivalente
+    litellm_params: {<<: *openai-large, timeout: 20}
+    model_info: *price-openai-large
+  - model_name: topic-analyst-fraco
+    litellm_params: {<<: *anthropic-mini, timeout: 20}
+    model_info: *price-anthropic-mini
+
+router_settings:
+  # Equivalente primeiro; o fraco só onde a política por feature permite (docs/adr).
+  fallbacks:
+    - ticket-classifier: [ticket-classifier-equivalente, ticket-classifier-fraco]
+    - order-extractor: [order-extractor-equivalente]
+    - reply-writer: [reply-writer-equivalente, reply-writer-fraco]
+    - topic-analyst: [topic-analyst-equivalente, topic-analyst-fraco]
+  # Retry só para falha transitória; repetir um travamento só dobra a espera.
+  retry_policy:
+    InternalServerErrorRetries: 1
+    RateLimitErrorRetries: 1
+    TimeoutErrorRetries: 0
+    DefaultRetries: 0
+  # Sem cooldown: o primário é tentado em toda requisição (circuit breaker fora de escopo).
+  disable_cooldowns: true
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY

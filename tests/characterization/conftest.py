@@ -50,3 +50,14 @@ def golden():
         assert observed == expected
 
     return check
+
+
+@pytest.fixture
+def golden_body():
+    """Corpo gravado na v1, para comparar com o conteúdo entregue pelos contratos novos."""
+
+    def load(name: str) -> dict:
+        path = GOLDEN_DIR / f"{name}.json"
+        return json.loads(path.read_text(encoding="utf-8"))["body"]
+
+    return load

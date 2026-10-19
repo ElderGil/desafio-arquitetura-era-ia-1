@@ -14,11 +14,6 @@ class Classification(BaseModel):
     priority: str
 
 
-class ReplySuggestion(BaseModel):
-    ticket_id: str
-    suggestion: str
-
-
 class OrderData(BaseModel):
     ticket_id: str
     order_number: str | None
@@ -41,3 +36,9 @@ class TopicsReport(BaseModel):
     end: date
     total_tickets: int
     topics: list[Topic]
+
+
+class ReportStatus(BaseModel):
+    state: str
+    progress: str | None = None
+    reason: str | None = None

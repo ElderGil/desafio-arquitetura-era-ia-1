@@ -1,5 +1,7 @@
+from collections.abc import Iterator
+
 from .ports import LanguageModel
-from .schemas import ReplySuggestion, TicketInput
+from .schemas import TicketInput
 
 
 class ReplySuggester:
@@ -7,6 +9,6 @@ class ReplySuggester:
         self._model = model
         self._capability = capability
 
-    def suggest(self, ticket: TicketInput) -> ReplySuggestion:
-        text = self._model.complete(self._capability, "suggest", ticket.text)
-        return ReplySuggestion(ticket_id=ticket.ticket_id, suggestion=text)
+    def stream(self, ticket: TicketInput) -> Iterator[str]:
+        """Trechos da sugestão à medida que o modelo gera; o atendente lê enquanto chega."""
+        return self._model.stream(self._capability, "suggest", ticket.text)

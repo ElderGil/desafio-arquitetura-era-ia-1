@@ -63,6 +63,8 @@ services:
     environment:
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
       HELPDESK_GATEWAY_KEY: ${HELPDESK_GATEWAY_KEY}
+      ROTEIRO_ORCAMENTO_KEY: ${ROTEIRO_ORCAMENTO_KEY}
+      ROTEIRO_RPM_KEY: ${ROTEIRO_RPM_KEY}
     volumes:
       - ./gateway/init_keys.py:/app/init_keys.py:ro
       - ./gateway/keys.yaml:/app/keys.yaml:ro
@@ -77,8 +79,13 @@ services:
       POSTGRES_USER: litellm
       POSTGRES_PASSWORD: ${GATEWAY_DB_PASSWORD}
       POSTGRES_DB: litellm
+    volumes:
+      - gateway-db-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U litellm -d litellm"]
       interval: 2s
       timeout: 3s
       retries: 20
+
+volumes:
+  gateway-db-data:
